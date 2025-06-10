@@ -13,7 +13,7 @@ class NewsApiController extends Controller
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . config('services.newsapi.key'),
             ])->get('https://newsapi.org/v2/top-headlines', [
-                'country' => 'pt', 
+                'country' => 'us', 
                 'category' => 'technology',
             ]);
 

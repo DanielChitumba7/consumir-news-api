@@ -1,61 +1,132 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Documentação do Teste de Consumo da API NewsAPI com Laravel
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Este documento detalha a implementação de um teste simples para consumir a API NewsAPI utilizando o HTTP Client nativo do Laravel (`Http` facade).
 
-## About Laravel
+## 1. Objectivo
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+O objetivo deste teste é demonstrar como realizar uma requisição autenticada a uma API pública externa (NewsAPI) a partir de uma aplicação Laravel, processar a resposta e retornar os dados.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 2. Configuração
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Para utilizar a API NewsAPI, é necessário obter uma API Key. Siga os passos abaixo para configurar a chave na sua aplicação Laravel:
 
-## Learning Laravel
+1. Obtenha uma API Key gratuita no site oficial da NewsAPI (https://newsapi.org/).
+2. Abra o arquivo `.env` na raiz do seu projeto Laravel.
+3. Adicione a seguinte linha ao arquivo `.env`, substituindo `SUA_NEWS_API_KEY` pela chave que você obteve:
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+   ```dotenv
+   NEWS_API_KEY=SUA_NEWS_API_KEY
+   ```
+4. Certifique-se de que a chave está sendo carregada corretamente no arquivo de configuração `config/services.php`. A configuração esperada é:
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+   ```php
+   //... outras configurações de serviços
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+   'newsapi' => [
+       'key' => env('NEWS_API_KEY'),
+   ],
 
-## Laravel Sponsors
+   //... outras configurações de serviços
+   ```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## 3. Implementação
 
-### Premium Partners
+A lógica para consumir a API NewsAPI está implementada no controlador `NewsApiController` e a rota correspondente está definida no arquivo de rotas web.
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+### 3.1 Controlador (`app/Http/Controllers/NewsApiController.php`)
 
-## Contributing
+O controlador `NewsApiController` possui um método `HeadLines` que realiza a requisição à API:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```php
+<?php
 
-## Code of Conduct
+namespace App\Http\Controllers;
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 
-## Security Vulnerabilities
+class NewsApiController extends Controller
+{
+    public function HeadLines()
+    {
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('services.newsapi.key'),
+            ])->get('https://newsapi.org/v2/top-headlines', [
+                'country' => 'us', 
+                'category' => 'technology',
+            ]);
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+            if ($response->successful()) {
+                return response()->json($response->json());
+            } else {
+                return response()->json(['error' => 'Erro na API'], $response->status());
+            }
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Erro interno: ' . $e->getMessage()], 500);
+        }
+    }
+    
+}
+```
 
-## License
+- O método `HeadLines` utiliza a facade `Http` do Laravel para fazer uma requisição GET para o endpoint `/v2/top-headlines` da NewsAPI.
+- A autenticação é feita através do cabeçalho `Authorization` com o esquema `Bearer`, utilizando a API Key configurada no arquivo `.env` e acessada via `config('services.newsapi.key')`.
+- São passados parâmetros na query string para filtrar as notícias por país (`us`) e categoria (`technology`).
+- A resposta da API é verificada: se for bem-sucedida (`$response->successful()`), o corpo da resposta em JSON é retornado; caso contrário, uma resposta de erro com o status da API é retornada.
+- Um bloco `try-catch` é utilizado para capturar possíveis exceções durante a requisição e retornar um erro interno.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### 3.2 Rota (`routes/web.php`)
+
+A rota para acessar o método `HeadLines` do controlador está definida no arquivo `routes/web.php`:
+
+```php
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\NewsApiController;
+
+Route::get('/noticias', [NewsApiController::class, 'HeadLines']);
+```
+
+- Uma rota GET `/noticias` foi definida, que direciona as requisições para o método `HeadLines` do `NewsApiController`.
+
+## 4. Como Testar
+
+Após configurar a API Key e ter a aplicação Laravel rodando, você pode testar o endpoint da seguinte formas:
+
+- **Postman ou ferramenta similar:** Faça uma requisição GET para a URL `http://localhost:8000/api/noticias`.
+
+Você deverá receber uma resposta JSON contendo as notícias principais de tecnologia dos EUA, conforme retornado pela NewsAPI.
+
+## 5. Exemplo de Resposta Esperada
+
+A resposta esperada é um objeto JSON similar ao seguinte (o conteúdo exato pode variar dependendo das notícias atuais):
+
+```json
+{
+    "status": "ok",
+    "totalResults": 30,
+    "articles": [
+        {
+            "source": {
+                "id": null,
+                "name": "CNET"
+            },
+            "author": "See full bio",
+            "title": "Apple WWDC 2025 Live: iOS 26, Updates to Apple Intelligence, Mac OS, iPadOS - CNET",
+            "description": "The new look comes with lots of features for Apple's devices, including a refreshed Phone app, windowing for the iPad and an enhanced Spotlight for the Mac.",
+            "url": "https://www.cnet.com/news-live/apple-wwdc-2025-live-keynote-news-annoucements-for-ios-mac/",
+            "urlToImage": "https://www.cnet.com/a/img/resize/de1f665d23e94f425fa9c5a7446e249a689929ef/hub/2025/06/03/b69e5efd-f160-4cf3-afef-7848ff47dfa9/promo-static.jpg?auto=webp&fit=crop&height=675&width=1200",
+            "publishedAt": "2025-06-09T18:28:00Z",
+            "content": "Jeff Carlson/CNET\r\nIn just a matter of hours, we'll likely see Apple preview the next version of iPhone software. It could be called iOS 19, or as rumors point out, iOS 26. Despite some leaks, CNET e… [+698 chars]"
+        },
+          // ... outros artigos
+    ]
+}
+```
+
+Em caso de erro, a resposta será um JSON com uma chave `error` e uma mensagem, e o código de status HTTP refletirá o erro (por exemplo, 401 para chave inválida, 500 para erro interno).
+
+
